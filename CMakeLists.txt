@@ -17,12 +17,22 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
+add_library(airbrake_core
+    src/flight_sample.cpp
+)
+
+target_include_directories(airbrake_core
+    PUBLIC include
+)
+
 add_executable(airbrake_sim_tests
     tests/smoke_test.cpp
+    tests/flight_sample_test.cpp
 )
 
 target_link_libraries(airbrake_sim_tests
     PRIVATE Catch2::Catch2WithMain
+    airbrake_core
 )
 
 include(Catch)
