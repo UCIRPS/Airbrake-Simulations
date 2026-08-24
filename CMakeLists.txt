@@ -19,6 +19,8 @@ FetchContent_MakeAvailable(Catch2)
 
 add_library(airbrake_core
     src/flight_sample.cpp
+    src/atmosphere.cpp
+    src/drag_table.cpp
 )
 
 target_include_directories(airbrake_core
