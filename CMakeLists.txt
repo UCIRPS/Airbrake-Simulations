@@ -22,6 +22,7 @@ add_library(airbrake_core
     src/atmosphere.cpp
     src/drag_table.cpp
     src/drag_table_csv.cpp
+    src/apogee_predictor.cpp
 )
 
 target_include_directories(airbrake_core
