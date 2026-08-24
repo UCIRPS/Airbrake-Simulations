@@ -33,6 +33,14 @@ add_executable(airbrake_sim_tests
     tests/flight_sample_test.cpp
 )
 
+add_executable(airbrake_sim
+    src/main.cpp
+)
+
+target_link_libraries(airbrake_sim
+    PRIVATE airbrake_core
+)
+
 target_link_libraries(airbrake_sim_tests
     PRIVATE Catch2::Catch2WithMain
     airbrake_core
