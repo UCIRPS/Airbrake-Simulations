@@ -45,8 +45,7 @@ ApogeePredictor::ApogeePredictor(
     SimulationConfig config,
     DragTable drag_table
 ) : config_(std::move(config)),
-    atmosphere_(config_),
-    drag_table_(std::move(drag_table)){}
+    dynamics_(config_, std::move(drag_table)){}
 
 PredictionResult ApogeePredictor::predict(
     const VerticalState& initial_state,
@@ -71,45 +70,45 @@ PredictionResult ApogeePredictor::predict(
             .status = PredictionStatus::reached_apogee
         };
     }
-    double altitude_m = initial_state.altitude_m;
-    double velocity_mps = initial_state.vertical_velocity_mps;
+    VerticalState state = initial_state;
     double elapsed_time_s = 0.0;
 
     while (
         elapsed_time_s < config_.max_simulation_time_s
     ) {
-        const double delta_altitude_m = altitude_m - initial_state.altitude_m;
-        const double temperature_k = atmosphere_.temperature_at_delta_altitude(
-            initial_state.temperature_k, delta_altitude_m);
-        const double pressure_pa = atmosphere_.pressure_at_delta_altitude(initial_state.pressure_pa, initial_state.temperature_k, delta_altitude_m);
-        const double density_kg_per_m3 = atmosphere_.density(pressure_pa, temperature_k);
-        const double mach_number = atmosphere_.mach(velocity_mps, temperature_k);
-        const double cda_m2 = drag_table_.cda_m2(deployment_fraction, mach_number);
-        const double drag_force_n = 0.5 * density_kg_per_m3 * velocity_mps * velocity_mps * cda_m2;
-        const double acceleration_mps2 = -config_.gravity_mps2 - drag_force_n / config_.mass_kg;
         const double remaining_time_s = config_.max_simulation_time_s - elapsed_time_s;
         const double dt_s = std::min(config_.integration_dt_s, remaining_time_s);
-        const double next_velocity_mps = velocity_mps + acceleration_mps2 * dt_s;
 
-        if (next_velocity_mps <= 0.0){
-            const double crossing_fraction = velocity_mps / (velocity_mps - next_velocity_mps);
-            const double time_to_apogee_s = dt_s * crossing_fraction;
-            const double apogee_m = altitude_m + velocity_mps * time_to_apogee_s + 0.5 * acceleration_mps2 * time_to_apogee_s * time_to_apogee_s;
+        const VerticalStepResult step_result =
+            dynamics_.step(
+                state,
+                deployment_fraction,
+                dt_s
+            );
 
+        if (step_result.status == VerticalStepStatus::invalid_input) {
             return PredictionResult{
-                .apogee_m = apogee_m,
-                .time_to_apogee_s = elapsed_time_s + time_to_apogee_s,
+                .apogee_m = 0.0,
+                .time_to_apogee_s = 0.0,
+                .status = PredictionStatus::invalid_input
+            };
+        }
+
+        state = step_result.state;
+        elapsed_time_s = state.time_s - initial_state.time_s;
+
+        if (step_result.status == VerticalStepStatus::reached_apogee) {
+            return PredictionResult{
+                .apogee_m = state.altitude_m,
+                .time_to_apogee_s = elapsed_time_s,
                 .status = PredictionStatus::reached_apogee
             };
         }
-        altitude_m = altitude_m + velocity_mps * dt_s + 0.5 * acceleration_mps2 * dt_s * dt_s;
-        velocity_mps = next_velocity_mps;
-        elapsed_time_s += dt_s;
     }
 
     return PredictionResult{
-        .apogee_m = altitude_m, 
-        .time_to_apogee_s =  elapsed_time_s,
+        .apogee_m = state.altitude_m,
+        .time_to_apogee_s = elapsed_time_s,
         .status = PredictionStatus::timed_out
     };
 }

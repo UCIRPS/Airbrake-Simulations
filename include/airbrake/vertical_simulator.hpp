@@ -1,9 +1,6 @@
 #pragma once
 
-#include "airbrake/atmosphere.hpp"
-#include "airbrake/drag_table.hpp"
-#include "airbrake/flight_sample.hpp"
-#include "airbrake/simulation_config.hpp"
+#include "airbrake/vertical_dynamics.hpp"
 
 namespace airbrake {
 
@@ -21,8 +18,7 @@ public:
 
 private:
     SimulationConfig config_;
-    Atmosphere atmosphere_;
-    DragTable drag_table_;
+    VerticalDynamics dynamics_;
 };
 
 } // namespace airbrake
