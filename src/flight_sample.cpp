@@ -14,4 +14,4 @@ VerticalState to_vertical_state(const RawTelemetrySample& raw){
     return state;
 }
 
-}
+} // namespace airbrake
