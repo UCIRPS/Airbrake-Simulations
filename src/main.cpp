@@ -1,11 +1,12 @@
 #include "airbrake/deployment_controller.hpp"
 #include "airbrake/drag_table_csv.hpp"
-#include "airbrake/vertical_simulator.hpp"
+#include "airbrake/vertical_dynamics.hpp"
 
 #include <exception>
 #include <iomanip>
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
 
 namespace {
 
@@ -51,7 +52,7 @@ int main(int argc, char* argv[]) {
             drag_table
         );
 
-        airbrake::VerticalSimulator simulator(
+        airbrake::VerticalDynamics dynamics(
             config,
             drag_table
         );
@@ -105,10 +106,23 @@ int main(int argc, char* argv[]) {
                     state.time_s + 0.100;
             }
 
-            state = simulator.step(
-                state,
-                command.deployment_fraction
-            );
+            const airbrake::VerticalStepResult step_result =
+                dynamics.step(
+                    state,
+                    command.deployment_fraction,
+                    config.integration_dt_s
+                );
+
+            if (
+                step_result.status ==
+                airbrake::VerticalStepStatus::invalid_input
+            ) {
+                throw std::invalid_argument(
+                    "Invalid input to VerticalDynamics::step"
+                );
+            }
+
+            state = step_result.state;
             maximum_altitude_m = std::max(
                 maximum_altitude_m,
                 state.altitude_m
