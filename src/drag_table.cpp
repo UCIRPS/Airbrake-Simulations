@@ -124,7 +124,7 @@ double DragTable::cda_m2(
     const std::size_t mach_index = lower_index(mach_grid_, mach);
 
     // Convert the input values into local interpolation fractions between zero and one 
-    // on their respective grid intervals
+    // on their respective grid intervals. 0 = closest lowest. 1 = closest highest
     const double deployment_fraction_local = (deployment - deployment_grid_[deployment_index]) / (deployment_grid_[deployment_index + 1] - deployment_grid_[deployment_index]);
     const double mach_fraction_local = (mach - mach_grid_[mach_index]) / (mach_grid_[mach_index + 1] - mach_grid_[mach_index]);
 
