@@ -12,7 +12,7 @@ Atmosphere::Atmosphere(const SimulationConfig& config)
 double Atmosphere::temperature_at_delta_altitude(
     double reference_temperature_k,
     double delta_altitude_m
-) const 
+) const {
     // A lapse-rate model assumes temperature decreases linearly as altitude increase.
     // A negative altitude change increases temperature
     const double temperature =
@@ -21,6 +21,7 @@ double Atmosphere::temperature_at_delta_altitude(
 
     // Prevent simplified model from producing zero or negative temperature
     return std::max(temperature, 1.0);
+}
 
 
 double Atmosphere::pressure_at_delta_altitude(
