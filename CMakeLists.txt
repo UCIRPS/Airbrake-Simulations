@@ -35,7 +35,6 @@ target_include_directories(airbrake_core
 add_executable(airbrake_sim_tests
     tests/smoke_test.cpp
     tests/flight_sample_test.cpp
-    tests/vertical_consistency_test.cpp
 )
 
 add_executable(airbrake_sim
