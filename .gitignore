@@ -13,7 +13,6 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 compile_commands.json
-CTestTestfile.cmake
 CMakeUserPresets.json
 install_manifest.txt
 
@@ -39,4 +38,4 @@ __pycache__/
 /out/
 /results/
 /plots/
-/Testing/
+./cache
