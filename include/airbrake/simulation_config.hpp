@@ -3,7 +3,7 @@
 namespace airbrake {
 
 struct SimulationConfig {
-    double mass_kg = 24.2;
+    double mass_kg = 30.39;
     double target_apogee_m = 304.8;
 
     double gravity_mps2 = 9.80665;
