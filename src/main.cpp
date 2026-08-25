@@ -1,86 +1,129 @@
-#include "airbrake/apogee_predictor.hpp"
+#include "airbrake/deployment_controller.hpp"
 #include "airbrake/drag_table_csv.hpp"
+#include "airbrake/vertical_simulator.hpp"
 
 #include <exception>
 #include <iomanip>
 #include <iostream>
+#include <algorithm>
 
-const char* status_name(
-    airbrake::PredictionStatus status
+namespace {
+
+const char* controller_status_to_string(
+    airbrake::ControllerStatus status
 ) {
     switch (status) {
-        case airbrake::PredictionStatus::reached_apogee:
-            return "reached apogee";
-
-        case airbrake::PredictionStatus::timed_out:
-            return "timed out";
-
-        case airbrake::PredictionStatus::invalid_input:
+        case airbrake::ControllerStatus::commanded:
+            return "commanded";
+        case airbrake::ControllerStatus::inactive:
+            return "inactive";
+        case airbrake::ControllerStatus::prediction_unavailable:
+            return "prediction unavailable";
+        case airbrake::ControllerStatus::invalid_input:
             return "invalid input";
     }
 
     return "unknown";
 }
 
-int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr
-            << "Usage: airbrake_sim <drag-table.csv>\n";
+} // namespace
 
+int main(int argc, char* argv[]) {
+    if (argc < 2 || argc > 3) {
+        std::cerr
+            << "Usage: " << argv[0]
+            << " <drag_table.csv> [target_apogee_m]\n";
         return 1;
     }
 
     try {
+        airbrake::SimulationConfig config;
+
+        if (argc == 3) {
+            config.target_apogee_m = std::stod(argv[2]);
+        }
+
         const airbrake::DragTable drag_table =
             airbrake::load_drag_table_csv(argv[1]);
 
-        const airbrake::SimulationConfig config{};
-
-        const airbrake::ApogeePredictor predictor(
+        airbrake::DeploymentController controller(
             config,
             drag_table
         );
 
-        const airbrake::VerticalState initial_state{
+        airbrake::VerticalSimulator simulator(
+            config,
+            drag_table
+        );
+
+        airbrake::VerticalState state{
             .time_s = 0.0,
-            .pressure_pa = 101325.0,
-            .altitude_m = 50.0,
-            .temperature_k = 293.15,
-            .vertical_velocity_mps = 120.0
+            .pressure_pa = 83047.0,
+            .altitude_m = 996.515,
+            .temperature_k = 317.30,
+            .vertical_velocity_mps = 200.27
         };
 
-        std::cout
-            << std::fixed
-            << std::setprecision(3);
+        double next_print_time_s = 0.0;
+        double previous_deployment = -1.0;
 
-        for (int i = 0; i <= 10; ++i) {
-            const double deployment_fraction =
-                static_cast<double>(i) / 10.0;
+        std::cout << std::fixed << std::setprecision(3);
 
-            const airbrake::PredictionResult result =
-                predictor.predict(
-                    initial_state,
-                    deployment_fraction
-                );
+        double maximum_altitude_m = state.altitude_m;
 
-            std::cout
-                << "Deployment: "
-                << deployment_fraction
-                << ", Apogee: "
-                << result.apogee_m
-                << " m, Time: "
-                << result.time_to_apogee_s
-                << " s, Status: "
-                << status_name(result.status)
-                << '\n';
+        while (
+            state.vertical_velocity_mps > 0.0 &&
+            state.time_s < config.max_simulation_time_s
+        ) {
+            const airbrake::DeploymentCommand command =
+                controller.compute(state);
+
+            const bool deployment_changed =
+                command.deployment_fraction != previous_deployment;
+
+            if (
+                state.time_s >= next_print_time_s ||
+                deployment_changed
+            ) {
+                std::cout
+                    << "Time: " << state.time_s
+                    << " s, Altitude: " << state.altitude_m
+                    << " m, Velocity: "
+                    << state.vertical_velocity_mps
+                    << " m/s, Deployment: "
+                    << command.deployment_fraction * 100.0
+                    << "%, Predicted apogee: "
+                    << command.prediction.apogee_m
+                    << " m, Status: "
+                    << controller_status_to_string(command.status)
+                    << '\n';
+
+                previous_deployment =
+                    command.deployment_fraction;
+
+                next_print_time_s =
+                    state.time_s + 0.100;
+            }
+
+            state = simulator.step(
+                state,
+                command.deployment_fraction
+            );
+            maximum_altitude_m = std::max(
+                maximum_altitude_m,
+                state.altitude_m
+            );
         }
-    }
-    catch (const std::exception& error) {
-        std::cerr
-            << "Error: "
-            << error.what()
-            << '\n';
 
+        std::cout << "\nSimulation complete\n";
+        std::cout << "Apogee: "
+                  << maximum_altitude_m
+                  << " m\n";
+        std::cout << "Time: "
+                  << state.time_s
+                  << " s\n";
+    } catch (const std::exception& error) {
+        std::cerr << "Error: " << error.what() << '\n';
         return 1;
     }
 
