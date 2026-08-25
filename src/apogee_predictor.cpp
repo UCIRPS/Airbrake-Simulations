@@ -8,6 +8,7 @@ namespace airbrake {
 
 namespace {
 
+// Checks whether all simulation configuration values are usable
 bool valid_config(const SimulationConfig& config) {
     return
         std::isfinite(config.mass_kg)
@@ -28,6 +29,7 @@ bool valid_config(const SimulationConfig& config) {
         && config.max_simulation_time_s > 0.0;
 }
 
+// Checks whether the incoming flight state contains valid values.
 bool valid_state(const VerticalState& state) {
     return
         std::isfinite(state.time_s)
@@ -51,6 +53,7 @@ PredictionResult ApogeePredictor::predict(
     const VerticalState& initial_state,
     double deployment_fraction
 ) const {
+    // Reject invalid configuration, state, or deployment input before beginning simulation
     if (
         !valid_config(config_) || 
         !valid_state(initial_state) || 
@@ -63,6 +66,7 @@ PredictionResult ApogeePredictor::predict(
         };
     }
 
+    // If the vehicle is already stationary vehicle, it is considered to be at apogee
     if (initial_state.vertical_velocity_mps == 0.0){
         return PredictionResult{
             .apogee_m = initial_state.altitude_m,
@@ -70,15 +74,18 @@ PredictionResult ApogeePredictor::predict(
             .status = PredictionStatus::reached_apogee
         };
     }
+    
     VerticalState state = initial_state;
-    double elapsed_time_s = 0.0;
+    double elapsed_time_s = 0.0; 
 
+    // Continue simulation until apogee is reached or the time limit expires
     while (
         elapsed_time_s < config_.max_simulation_time_s
     ) {
         const double remaining_time_s = config_.max_simulation_time_s - elapsed_time_s;
         const double dt_s = std::min(config_.integration_dt_s, remaining_time_s);
 
+        // Advance the shared vertical physics model by only one time step.
         const VerticalStepResult step_result =
             dynamics_.step(
                 state,
@@ -94,9 +101,10 @@ PredictionResult ApogeePredictor::predict(
             };
         }
 
-        state = step_result.state;
-        elapsed_time_s = state.time_s - initial_state.time_s;
+        state = step_result.state; // Store the state produced by the physics step
+        elapsed_time_s = state.time_s - initial_state.time_s; 
 
+        // If the dynamics model detected the upward velocity crossing zero, return the interpolated apogee state
         if (step_result.status == VerticalStepStatus::reached_apogee) {
             return PredictionResult{
                 .apogee_m = state.altitude_m,
