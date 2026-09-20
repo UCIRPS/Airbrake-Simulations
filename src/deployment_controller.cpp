@@ -11,7 +11,7 @@ namespace airbrake {
 namespace {
 
 // Validated the flight state before giving it to the controller
-bool valid_state(const VerticalState& state) {
+bool valid_state(const RocketState& state) {
     return
         std::isfinite(state.time_s) &&
         std::isfinite(state.pressure_pa) &&
@@ -20,7 +20,11 @@ bool valid_state(const VerticalState& state) {
         std::isfinite(state.temperature_k) &&
         state.temperature_k > 0.0 &&
         std::isfinite(state.vertical_velocity_mps) &&
-        state.vertical_velocity_mps >= 0.0;
+        state.vertical_velocity_mps >= 0.0 &&
+        std::isfinite(state.tilt_from_vertical_deg) &&
+        state.tilt_from_vertical_deg >= 0.0 &&
+        std::isfinite(state.horizontal_velocity_mps) &&
+        state.horizontal_velocity_mps >= 0.0;
 }
 
 // Creates a consistent response for invalid controller input.
@@ -52,7 +56,7 @@ DeploymentController::DeploymentController(
 
 // Calculates the deployment command for the current flight state
 DeploymentCommand DeploymentController::compute(
-    const VerticalState& state
+    const RocketState& state
 ) const {
     // Reject invalid state or controller configuration before making any prediction.
     if (!valid_state(state) ||
@@ -77,8 +81,14 @@ DeploymentCommand DeploymentController::compute(
         };
     }
 
+    const double airspeed_mps = 
+    std::hypot(
+        state.vertical_velocity_mps,
+        state.horizontal_velocity_mps
+    );
+
     // Calculate the current Mach number for deployment safety checks.
-    const double mach_number = atmosphere_.mach(state.vertical_velocity_mps, state.temperature_k);
+    const double mach_number = atmosphere_.mach(airspeed_mps, state.temperature_k);
 
     // Keep the airbrakes retracted after apogee or while the vehicle is
     // traveling faster than the allowed Mach limit.

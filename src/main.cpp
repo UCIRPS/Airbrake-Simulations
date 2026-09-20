@@ -69,13 +69,17 @@ int main(int argc, char* argv[]) {
         );
 
         // Define the initial vertical flight state.
-        airbrake::VerticalState state{
+        airbrake::RocketState state{
+            .tilt_from_vertical_deg = 10.0,
             .time_s = 0.0,
             .pressure_pa = 83047.0,
             .altitude_m = 996.515,
             .temperature_k = 317.30,
             .vertical_velocity_mps = 200.27
         };
+
+        //initialize horizontal velocity using tilt and vertical velocity
+        airbrake::initialize_horizontal_velocity_from_tilt(state);
 
         // Used to limit regular console output to approximately every 0.1 seconds of simulated time.
         double next_print_time_s = 0.0;
@@ -110,8 +114,10 @@ int main(int argc, char* argv[]) {
                 std::cout
                     << "Time: " << state.time_s
                     << " s, Altitude: " << state.altitude_m
-                    << " m, Velocity: "
+                    << " m, Vertical Velocity: "
                     << state.vertical_velocity_mps
+                    << " m/s, Horizontal Velocity: "
+                    << state.horizontal_velocity_mps
                     << " m/s, Deployment: "
                     << command.deployment_fraction * 100.0
                     << "%, Predicted apogee: "

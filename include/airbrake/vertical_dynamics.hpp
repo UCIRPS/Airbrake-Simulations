@@ -16,7 +16,7 @@ enum class VerticalStepStatus {
 
 // Contains the updated state and result status from one physics step
 struct VerticalStepResult {
-    VerticalState state;
+    RocketState state;
     VerticalStepStatus status;
 };
 
@@ -42,7 +42,7 @@ public:
     */
 
     VerticalStepResult step(
-        const VerticalState& state,
+        const RocketState& state,
         double deployment_fraction,
         double dt_s
     ) const;

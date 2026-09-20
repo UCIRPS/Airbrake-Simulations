@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+#include <numbers>
 namespace airbrake {
 
 /**
@@ -23,12 +25,14 @@ Normalized vertical flight state used by the physics model.
 All quantities are in SI units. Altitude is relative to the launch reference altitude,
 while time remains relative to the telemetry timeline
 */
-struct VerticalState {
+struct RocketState {
+    double tilt_from_vertical_deg; //  starting angle of rocket, in degrees
     double time_s;
     double pressure_pa;
     double altitude_m;
     double temperature_k;
     double vertical_velocity_mps;
+    double horizontal_velocity_mps;
 };
 
 /**
@@ -43,6 +47,14 @@ The conversion performs these operations:
 @param raw Raw telemetry sample from the flight log
 @return Normalized state suitable for atmospheric, predictor, and simulator model.
 */
-VerticalState to_vertical_state(const RawTelemetrySample& raw);
+RocketState to_vertical_state(const RawTelemetrySample& raw);
+
+/** 
+derives horizontal velocity from vertical velocity and tilt for initialization
+
+    @param RocketState current vertical flight state 
+
+ */
+void initialize_horizontal_velocity_from_tilt(RocketState &state);
 
 }
