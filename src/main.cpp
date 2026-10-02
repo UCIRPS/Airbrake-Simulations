@@ -71,10 +71,10 @@ int main(int argc, char* argv[]) {
         // Define the initial vertical flight state.
         airbrake::VerticalState state{
             .time_s = 0.0,
-            .pressure_pa = 83047.0,
-            .altitude_m = 996.515,
-            .temperature_k = 317.30,
-            .vertical_velocity_mps = 200.27
+            .pressure_pa = 86515.38,
+            .altitude_m = 685.8,
+            .temperature_k = 279.6,
+            .vertical_velocity_mps = 256.41
         };
 
         // Used to limit regular console output to approximately every 0.1 seconds of simulated time.

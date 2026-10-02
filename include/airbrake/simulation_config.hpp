@@ -7,7 +7,7 @@ Configuration values shared by the atmosphere, dynamics, predictor,
 simulator, and deployment controller.
  */
 struct SimulationConfig {
-    double mass_kg = 30.39; // vehicle mass
+    double mass_kg = 25.62; // vehicle mass (dry weight)
     double target_apogee_m = 304.8; // target apogee
 
     double gravity_mps2 = 9.80665; // gravitation acceleration
@@ -19,4 +19,4 @@ struct SimulationConfig {
     double max_simulation_time_s = 120.0; // Maximum simulation time, in seconds
 };
 
-} // namespace airbrake /
+} // namespace airbrake 
