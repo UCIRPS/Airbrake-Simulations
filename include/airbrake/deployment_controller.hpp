@@ -53,7 +53,7 @@ public:
         @return DeploymentCommand (Deployment command, predicted apogee, and controller status.)
     */
     DeploymentCommand compute(
-        const VerticalState& state
+        const RocketState& state
     ) const;
 
 private:

@@ -38,7 +38,7 @@ public:
 
     */
     PredictionResult predict(
-        const VerticalState& initial_state,
+        const RocketState& initial_state,
         double deployment_fraction
     ) const;
 

@@ -1,5 +1,4 @@
 #include "airbrake/vertical_dynamics.hpp"
-
 #include <cmath>
 #include <utility>
 
@@ -23,7 +22,7 @@ bool valid_config(const SimulationConfig& config) {
 }
 
 // Checks whether the current flight state is physically usable.
-bool valid_state(const VerticalState& state) {
+bool valid_state(const RocketState& state) {
     return
         std::isfinite(state.time_s) &&
         std::isfinite(state.pressure_pa) &&
@@ -32,7 +31,11 @@ bool valid_state(const VerticalState& state) {
         std::isfinite(state.temperature_k) &&
         state.temperature_k > 0.0 &&
         std::isfinite(state.vertical_velocity_mps) &&
-        state.vertical_velocity_mps >= 0.0;
+        state.vertical_velocity_mps >= 0.0 &&
+        std::isfinite(state.tilt_from_vertical_deg) &&
+        state.tilt_from_vertical_deg >= 0.0 &&
+        std::isfinite(state.horizontal_velocity_mps) &&
+        state.horizontal_velocity_mps >= 0.0;
 }
 
 } // namespace
@@ -48,7 +51,7 @@ VerticalDynamics::VerticalDynamics(
 
 // Advances the vertical flight model by one step
 VerticalStepResult VerticalDynamics::step(
-    const VerticalState& state,
+    const RocketState& state,
     double deployment_fraction,
     double dt_s
 ) const {
@@ -74,6 +77,15 @@ VerticalStepResult VerticalDynamics::step(
         };
     }
 
+    // calculate total overall velocity 
+    // use in replacement of vertical velocity when calculating 
+    // mach, drag, predicted_velocity, and altitude change 
+    const double airspeed_mps = 
+    std::hypot(
+        state.vertical_velocity_mps,
+        state.horizontal_velocity_mps
+    );
+
     const double density_kg_per_m3 =
         atmosphere_.density(
             state.pressure_pa,
@@ -82,7 +94,7 @@ VerticalStepResult VerticalDynamics::step(
 
     const double mach_number =
         atmosphere_.mach(
-            state.vertical_velocity_mps,
+            airspeed_mps,
             state.temperature_k
         );
 
@@ -93,57 +105,75 @@ VerticalStepResult VerticalDynamics::step(
         );
 
     // Calculate aerodynamic drag:
-    /// F_drag = 0.5 * density * velocity^2 * CdA
+    /// F_drag = 0.5 * density * airspeed^2 * CdA
     const double drag_force_n =
         0.5 *
         density_kg_per_m3 *
-        state.vertical_velocity_mps *
-        state.vertical_velocity_mps *
+        airspeed_mps *
+        airspeed_mps *
         cda_m2;
 
+    
     // Calculate vertical acceleration
     // Gravity acts downward, and drag also opposes the upward motion.
     // Therefore both terms are negative while the vehicle is ascending.
-    const double acceleration_mps2 =
+    // calculate using only vertical component of drag
+    const double vertical_acceleration_mps2 =
         -config_.gravity_mps2 -
-        drag_force_n / config_.mass_kg;
+        (drag_force_n * (state.vertical_velocity_mps/airspeed_mps))
+        /config_.mass_kg;
+    
+    //calculate horizontal acceleration
+    //only opposing force is drag
+    const double horizontal_acceleration_mps2 =
+        -(drag_force_n * (state.horizontal_velocity_mps/airspeed_mps))
+        /config_.mass_kg;
 
-    // Estimate the velocity at the end of the full time step using
+    // Estimate the vertical velocity at the end of the full time step using
     // constant acceleration over this step.
-    const double predicted_velocity_mps =
+    const double predicted_vertical_velocity_mps =
         state.vertical_velocity_mps +
-        acceleration_mps2 * dt_s;
+        vertical_acceleration_mps2 * dt_s;
+
+    // Estimate the horizontal velocity at the end of the full time step using
+    //constant acceleration over this step
+    const double predicted_horizontal_velocity_mps =
+        state.horizontal_velocity_mps +
+        horizontal_acceleration_mps2 * dt_s;
 
     double actual_dt_s = dt_s;
-    double next_velocity_mps = predicted_velocity_mps;
+    double next_vertical_velocity_mps = predicted_vertical_velocity_mps;
+    double next_horizontal_velocity_mps = predicted_horizontal_velocity_mps; 
     VerticalStepStatus status = VerticalStepStatus::advanced;
 
     // Non-positive predicted velocity means the vehicle reaches apogee somewhere inside this time step
-    if (predicted_velocity_mps <= 0.0) {
+    if (predicted_vertical_velocity_mps <= 0.0) {
         // Estimate fraction of the time step needed for velocity to decrease from it's current value to zero
         const double crossing_fraction =
             state.vertical_velocity_mps /
-            (state.vertical_velocity_mps - predicted_velocity_mps);
+            (state.vertical_velocity_mps - predicted_vertical_velocity_mps);
         // Shorten the step
-        actual_dt_s = dt_s * crossing_fraction;
+        actual_dt_s = dt_s * crossing_fraction; 
         // Reached apogee
-        next_velocity_mps = 0.0;
+        next_vertical_velocity_mps = 0.0;
         status = VerticalStepStatus::reached_apogee;
     }
     
     // Calculate altitude change using constat acceleration equation 
     const double altitude_change_m =
-        state.vertical_velocity_mps * actual_dt_s +
+        state.vertical_velocity_mps *
+        actual_dt_s +
         0.5 *
-        acceleration_mps2 *
+        vertical_acceleration_mps2 *
         actual_dt_s *
         actual_dt_s;
 
     // Copy current state and advance it one time step
-    VerticalState next_state = state;
+    RocketState next_state = state;
     next_state.time_s += actual_dt_s;
     next_state.altitude_m += altitude_change_m;
-    next_state.vertical_velocity_mps = next_velocity_mps;
+    next_state.vertical_velocity_mps = next_vertical_velocity_mps;
+    next_state.horizontal_velocity_mps = next_horizontal_velocity_mps;
     next_state.temperature_k =
         atmosphere_.temperature_at_delta_altitude(
             state.temperature_k,

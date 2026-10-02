@@ -16,7 +16,7 @@ struct SimulationConfig {
     double temperature_lapse_rate_k_per_m = 0.0065; // Atmospheric temperature decreases with altitude
 
     double integration_dt_s = 0.01; // Physics integration timestep, in seconds
-    double max_simulation_time_s = 120.0; // Maximum simulation time, in seconds
+    double max_simulation_time_s = 120.0; // Maximum simulation time, in seconds 
 };
 
 } // namespace airbrake 

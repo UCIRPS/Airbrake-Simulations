@@ -30,7 +30,7 @@ bool valid_config(const SimulationConfig& config) {
 }
 
 // Checks whether the incoming flight state contains valid values.
-bool valid_state(const VerticalState& state) {
+bool valid_state(const RocketState& state) {
     return
         std::isfinite(state.time_s)
         && std::isfinite(state.pressure_pa)
@@ -39,7 +39,11 @@ bool valid_state(const VerticalState& state) {
         && std::isfinite(state.temperature_k)
         && state.temperature_k > 0.0
         && std::isfinite(state.vertical_velocity_mps)
-        && state.vertical_velocity_mps >= 0.0;
+        && state.vertical_velocity_mps >= 0.0 
+        && std::isfinite(state.tilt_from_vertical_deg) 
+        && state.tilt_from_vertical_deg >= 0.0 
+        && std::isfinite(state.horizontal_velocity_mps)
+        && state.horizontal_velocity_mps >= 0.0;
 }
 } // namespace
 
@@ -50,7 +54,7 @@ ApogeePredictor::ApogeePredictor(
     dynamics_(config_, std::move(drag_table)){}
 
 PredictionResult ApogeePredictor::predict(
-    const VerticalState& initial_state,
+    const RocketState& initial_state,
     double deployment_fraction
 ) const {
     // Reject invalid configuration, state, or deployment input before beginning simulation
@@ -75,7 +79,7 @@ PredictionResult ApogeePredictor::predict(
         };
     }
     
-    VerticalState state = initial_state;
+    RocketState state = initial_state;
     double elapsed_time_s = 0.0; 
 
     // Continue simulation until apogee is reached or the time limit expires
